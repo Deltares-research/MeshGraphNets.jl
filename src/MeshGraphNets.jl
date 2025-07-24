@@ -10,7 +10,6 @@ using GraphNetCore
 using CUDA
 using Lux, LuxCUDA
 using Optimisers
-using Wandb
 using Zygote
 
 import OrdinaryDiffEq: OrdinaryDiffEqAlgorithm, Tsit5
@@ -52,7 +51,6 @@ export train_network, eval_network, der_minmax, data_meanstd
     use_valid::Bool = true
     solver_valid::OrdinaryDiffEqAlgorithm = Tsit5()
     solver_valid_dt::Union{Nothing, Float32} = nothing
-    wandb_logger::Union{Nothing, Wandb.WandbLogger} = nothing
     reset_valid::Bool = false
 end
 
@@ -235,7 +233,6 @@ Starts the training process with the given configuration.
 - `cell_idxs = [0]`: Indices of cells that are plotted during validation (if enabled).
 - `solver_valid = Tsit5()`: Which solver should be used for validation during training.
 - `solver_valid_dt = nothing`: If set, the solver for validation will use fixed timesteps.
-- `wandb_logger` = nothing: If set, a [Wandb](https://github.com/avik-pal/Wandb.jl) WandbLogger will be used for logging the training.
 - `reset_valid = false`: If set, the previous minimal validation loss will be overwritten.
 
 ## Training Strategies
@@ -384,9 +381,6 @@ function train_mgn!(mgn::GraphNetwork, opt_state, dataset::Dataset, noise,
                         (:data_interval, delta == 1 ? "1:end" : 1:delta),
                         (:min_validation_loss, min_validation_loss),
                         (:last_validation_loss, last_validation_loss)])
-                if !isnothing(args.wandb_logger)
-                    Wandb.log(args.wandb_logger, Dict("train_loss" => l))
-                end
             else
                 next!(pr;
                     showvalues = [(:step, "$(step + datapoint)/$(args.epochs*args.steps)"),
@@ -448,12 +442,6 @@ function train_mgn!(mgn::GraphNetwork, opt_state, dataset::Dataset, noise,
                     showvalues = [
                         (:trajectory, "$i/$(meta_valid["n_trajectories_valid"])"),
                         (:valid_loss, "$((valid_error + ve) / i)")])
-            end
-
-            if !isnothing(args.wandb_logger)
-                Wandb.log(args.wandb_logger,
-                    Dict("validation_loss" => valid_error /
-                                              dataset.meta["n_trajectories_valid"]))
             end
 
             if valid_error / dataset.meta["n_trajectories_valid"] < min_validation_loss
