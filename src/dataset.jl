@@ -86,8 +86,12 @@ Loads the training & validation data or test data depending on the given argumen
 ## Returns
 - [Dataset](@ref) containing the data and metadata.
 """
-function load_dataset(path::String, is_training::Bool)
+function load_dataset(path::String, is_training::Bool; metafile=nothing)
     seed!(1234)
+
+    if isnothing(metafile)
+        metafile = joinpath(path, "meta.json")
+    end
 
     filename = is_training ? "train" : "test"
 
@@ -100,7 +104,7 @@ function load_dataset(path::String, is_training::Bool)
     end
 
     if endswith(file, "tfrecord")
-        meta = parse(Base.read(joinpath(path, "meta.json"), String))
+        meta = parse(Base.read(metafile, String))
 
         ds = Dataset(
             joinpath(path, file),
@@ -116,7 +120,7 @@ function load_dataset(path::String, is_training::Bool)
             0
         )
     elseif endswith(file, "jld2") || endswith(file, "h5")
-        meta = parse(Base.read(joinpath(path, "meta.json"), String))
+        meta = parse(Base.read(metafile, String))
 
         is_jld = endswith(file, "jld2")
 

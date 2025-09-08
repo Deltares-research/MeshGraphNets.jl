@@ -246,7 +246,7 @@ See [CylinderFlow Example](https://una-auxme.github.io/MeshGraphNets.jl/dev/cyli
 - Trained network as a [`GraphNetwork`](@ref) struct.
 - Minimum of validation loss (for hyperparameter tuning).
 """
-function train_network(noise_stddevs, opt, ds_path, cp_path; kws...)
+function train_network(noise_stddevs, opt, ds_path, cp_path, meta_path=nothing; kws...)
     args = Args(; kws...)
 
     if CUDA.functional() && args.use_cuda
@@ -262,7 +262,11 @@ function train_network(noise_stddevs, opt, ds_path, cp_path; kws...)
     @info "Training with $(typeof(args.training_strategy))..."
 
     println("Loading training data...")
-    dataset = load_dataset(ds_path, true)
+    if isnothing(meta_path)
+        dataset = load_dataset(ds_path, true)
+    else
+        dataset = load_dataset(ds_path, true, metafile=meta_path)
+    end
     clear_log(1, false)
     @info "Training data loaded!"
 
