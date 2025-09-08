@@ -496,7 +496,7 @@ Starts the evaluation process with the given configuration.
 - `num_rollouts = 10`: Number of trajectories that are simulated (from the test dataset).
 - `use_valid = true`: Whether the last checkpoint with the minimal validation loss should be used.
 """
-function eval_network(ds_path, cp_path::String, out_path::String, solver = nothing;
+function eval_network(ds_path, cp_path::String, out_path::String, meta_path=nothing, solver = nothing;
         start, stop, dt = nothing, saves, mse_steps, kws...)
     args = Args(; kws...)
 
@@ -511,7 +511,11 @@ function eval_network(ds_path, cp_path::String, out_path::String, solver = nothi
     end
 
     println("Loading evaluation data...")
-    dataset = load_dataset(ds_path, false)
+    if isnothing(meta_path)
+        dataset = load_dataset(ds_path, true)
+    else
+        dataset = load_dataset(ds_path, true, metafile=meta_path)
+    end
 
     clear_log(1, false)
     @info "Evaluation data loaded!"
