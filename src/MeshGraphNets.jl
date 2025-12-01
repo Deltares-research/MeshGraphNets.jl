@@ -14,7 +14,8 @@ using Optimisers
 using Wandb
 using Zygote
 
-import OrdinaryDiffEq: OrdinaryDiffEqAlgorithm, Tsit5
+import OrdinaryDiffEq: Tsit5
+import OrdinaryDiffEqCore: OrdinaryDiffEqAlgorithm
 import ProgressMeter: Progress
 import SciMLBase: ODEProblem
 
