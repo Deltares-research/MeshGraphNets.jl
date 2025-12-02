@@ -358,11 +358,14 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
         ds_train; batchsize = -1, buffer = false, parallel = true, shuffle = true)
     valid_loader = DataLoader(ds_valid; batchsize = -1, buffer = false, parallel = true)
 
-    while step < args.steps
-        for data in train_loader
+    for data in train_loader
+        while step < args.steps
             delta = get_delta(args.training_strategy, data["trajectory_length"])
 
             for (data_idx, datapoint) in enumerate(delta)
+                if step + data_idx > args.steps
+                    break
+                end
                 train_tuple = init_train_step(args.training_strategy,
                     (mgn, data, ds_train.meta, fields,
                         ds_train.meta["target_features"], data["node_type"],
