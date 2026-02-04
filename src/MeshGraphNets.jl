@@ -51,6 +51,7 @@ export train_network, eval_network, data_minmax, data_meanstd
     noise_stddevs::Vector{Float32} = [0.0f0]
     training_strategy::TrainingStrategy = DerivativeTraining()
     opt_scheduler = nothing
+    activ_function = relu
     use_cuda::Bool = true
     gpu_device::Union{Nothing, CuDevice} = CUDA.functional() ? CUDA.device() : nothing
     cell_idxs::Vector{Integer} = [0]
@@ -303,7 +304,7 @@ function train_network(opt, ds_path, cp_path; kws...)
     mgn, train_state, df_train, df_valid = load(
         quantities, typeof(dims) <: AbstractArray ? length(dims) : dims,
         e_norms, n_norms, o_norms, n_feat, n_nodes, n_edges, args.mps,
-        args.layer_size, args.hidden_layers, opt, device, cp_path)
+        args.activ_function, args.layer_size, args.hidden_layers, opt, device, cp_path)
 
     if isnothing(train_state)
         train_state = Lux.Training.TrainState(mgn.model, mgn.ps, mgn.st, opt)
