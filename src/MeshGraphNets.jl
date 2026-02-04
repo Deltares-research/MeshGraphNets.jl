@@ -30,7 +30,7 @@ include("graph.jl")
 include("solve.jl")
 include("dataset.jl")
 
-export SolverTraining, MultipleShooting, DerivativeTraining
+export SolverTraining, MultipleShooting, DerivativeTraining, DerivativeBatchTraining
 
 export train_network, eval_network, data_minmax, data_meanstd
 
@@ -287,14 +287,20 @@ function train_network(opt, ds_path, cp_path; kws...)
     quantities, e_norms, n_norms, o_norms = calc_norms(ds_train, device, args)
 
     dims = ds_train.meta["dims"]
-    outputs = 0
+    n_feat = 0
     for tf in ds_train.meta["target_features"]
-        outputs += ds_train.meta["features"][tf]["dim"]
+        n_feat += ds_train.meta["features"][tf]["dim"]
     end
+
+    # Quick and dirty way of getting n_nodes, not very efficient...
+    # n_nodes is now needed to pass correct size to Lux.LayerNorm
+    traj = first(DataLoader(ds_train; batchsize=-1))
+    n_nodes = traj["n_nodes"]
+    n_edges = size(traj["edge_features"])[end]
 
     mgn, train_state, df_train, df_valid = load(
         quantities, typeof(dims) <: AbstractArray ? length(dims) : dims,
-        e_norms, n_norms, o_norms, outputs, args.mps,
+        e_norms, n_norms, o_norms, n_feat, n_nodes, n_edges, args.mps,
         args.layer_size, args.hidden_layers, opt, device, cp_path)
 
     if isnothing(train_state)
@@ -522,14 +528,20 @@ function eval_network(ds_path, cp_path::String, out_path::String, solver = nothi
     quantities, e_norms, n_norms, o_norms = calc_norms(ds_test, device, args)
 
     dims = ds_test.meta["dims"]
-    outputs = 0
+    n_feats = 0
     for tf in ds_test.meta["target_features"]
-        outputs += ds_test.meta["features"][tf]["dim"]
+        n_feats += ds_test.meta["features"][tf]["dim"]
     end
+
+    # Quick and dirty way of getting n_nodes, not very efficient...
+    # n_nodes is now needed to pass correct size to Lux.LayerNorm
+    traj = first(DataLoader(ds_test; batchsize=-1))
+    n_nodes = traj["n_nodes"]
+    n_edges = size(traj["edge_features"])[end]
 
     mgn, _, _, _ = load(
         quantities, typeof(dims) <: AbstractArray ? length(dims) : dims, e_norms,
-        n_norms, o_norms, outputs, args.mps, args.layer_size, args.hidden_layers,
+        n_norms, o_norms, n_feats, n_nodes, n_edges, args.mps, args.layer_size, args.hidden_layers,
         nothing, device, args.use_valid ? joinpath(cp_path, "valid") : cp_path)
 
     Lux.testmode(mgn.st)

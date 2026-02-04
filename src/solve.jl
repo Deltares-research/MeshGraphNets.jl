@@ -45,6 +45,7 @@ function rollout(solver, mgn::GraphNetwork, data, fields, meta, target_fields,
     interval = (start, stop)
     x0 = vcat([typeof(data[field]) <: AbstractArray ? data[field][:, :, 1] :
                data[field] for field in target_fields]...)
+    x0 = reshape(x0, (size(x0)...,1))
     inputs = Dict{String, AbstractArray}(
         [typeof(data[field]) <: AbstractArray ? (field, data[field][:, :, 1]) :
          (field, data[field]) for field in fields]
@@ -57,7 +58,7 @@ function rollout(solver, mgn::GraphNetwork, data, fields, meta, target_fields,
     if isnothing(dt)
         sol = solve(prob, solver; saveat = saves, tstops = saves)
     else
-        sol = solve(prob, solver; adaptive = false, dt = dt, saveat = saves)
+       sol = solve(prob, solver; adaptive = false, dt = dt, saveat = saves)
     end
 
     if !isnothing(pr)

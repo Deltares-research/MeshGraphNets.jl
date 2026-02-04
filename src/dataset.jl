@@ -750,6 +750,9 @@ function prepare_trajectory!(data, meta, device::Function)
             end
             data[field] = device(data[field])
         end
+        if meta["training_strategy"] isa DerivativeBatchTraining
+            data["dt"] = device(data["dt"])
+        end
     else
         for field in meta["feature_names"]
             if field == "mesh_pos" || field == "node_type" || field == "cells"

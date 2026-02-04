@@ -110,7 +110,6 @@ Inner function for validation of a single trajectory.
 """
 function _validation_step(t::Tuple, sim_interval, data_interval)
     mgn, data, meta, _, solver, solver_dt, fields, node_type, edge_features, senders, receivers, mask, val_mask, inflow_mask, pr = t
-
     target_dict = Dict{String, Int32}()
     for tf in meta["target_features"]
         target_dict[tf] = meta["features"][tf]["dim"]
@@ -433,13 +432,14 @@ end
 function init_train_step(::DerivativeStrategy, t::Tuple, ::Tuple)
     mgn, data, meta, fields, target_fields, node_type, edge_features, senders, receivers, datapoint, mask, _ = t
 
+    dt = data["dt"][datapoint .+ 1] - data["dt"][datapoint]
     target_quantities_change = vcat([mgn.o_norm[field]((data["target|" * field][
                                          :, :, datapoint] -
-                                                        data[field][:, :, datapoint]) /
-                                                       (data["dt"][datapoint + 1] -
-                                                        data["dt"][datapoint]))
+                                                        data[field][:, :, datapoint]) ./ dt)
                                      for field in target_fields]...)
 
+    target_quantities_change = reshape(target_quantities_change, (size(target_quantities_change)..., 1))
+    # mask = reshape(mask, (size(mask)..., 1))
     graph = build_graph(
         mgn, data, fields, datapoint, node_type, edge_features, senders, receivers)
 
@@ -449,7 +449,7 @@ end
 function train_step(::DerivativeStrategy, t::Tuple)
     mgn, graph, target_quantities_change, mask = t
 
-    return GraphNetCore.step!(mgn, graph, target_quantities_change, mask, mse_reduce)
+    return GraphNetCore.step!(mgn, graph, target_quantities_change, mask, mse_reduce3)
 end
 
 function validation_step(::DerivativeStrategy, t::Tuple)
@@ -476,4 +476,49 @@ struct DerivativeTraining <: DerivativeStrategy
 end
 function DerivativeTraining(; window_size::Integer = 0, random = true)
     DerivativeTraining(window_size, random)
+end
+
+"""
+    DerivativeBatchTraining(; batch_size = 32, window_size = 0)
+"""
+
+struct DerivativeBatchTraining <: DerivativeStrategy
+    batch_size::Integer
+    window_size::Integer
+    random::Bool
+end
+
+function DerivativeBatchTraining(; batch_size::Integer = 32, window_size::Integer = 0, random = true)
+    DerivativeBatchTraining(batch_size, window_size, random)
+end
+
+function get_delta(strategy::DerivativeBatchTraining, trajectory_length::Integer)
+    max_step = strategy.window_size > 0 ? strategy.window_size : trajectory_length
+    ranges = [i:min(max_step, i + strategy.batch_size - 1) for i in 1:(strategy.batch_size):(max_step-1)]
+    return ranges
+end
+
+function init_train_step(strategy::DerivativeBatchTraining, t::Tuple, ::Tuple)
+    mgn, data, meta, fields, target_fields, node_type, edge_features, senders, receivers, datarange, mask, _ = t
+
+    dts = data["dt"][datarange.+1] - data["dt"][datarange]
+    dts = reshape(dts, (1,1,strategy.batch_size))
+
+    target_quantities_change = vcat([mgn.o_norm[field]((data["target|"*field][:,:,datarange] .- 
+                                                data[field][:,:,datarange]) ./ dts) for field in target_fields]...)
+
+    graph = build_graph(
+        mgn, data, fields, collect(datarange), node_type, edge_features, senders, receivers
+    )
+
+    return (mgn, graph, target_quantities_change, mask)
+
+end
+
+function train_step(::DerivativeBatchTraining, t::Tuple)
+    # Divide already here the loss by batch_size??
+
+    mgn, graph, target_quantities_change, mask = t
+
+    return GraphNetCore.step!(mgn, graph, target_quantities_change, mask, mse_reduce3)
 end

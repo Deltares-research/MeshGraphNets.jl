@@ -76,16 +76,17 @@ Constructs a [FeatureGraph](@ref) based on the given arguments.
 ## Returns
 - Resulting [FeatureGraph](@ref).
 """
-function build_graph(mgn::GraphNetwork, data, fields, datapoint::Integer, node_type,
+function build_graph(mgn::GraphNetwork, data, fields, datarange::Union{Integer, AbstractArray{Int,1}}, node_type,
         edge_features::AbstractArray{Float32, 2}, senders::AbstractArray{T, 1},
         receivers::AbstractArray{T, 1}) where {T <: Integer}
     # Removed generator in favor of removing Zygote.jl piracies (minimal increase of time and allocations)
     # Can be reverted once Enzyme.jl is compatible
     nt = mgn.n_norm["node_type"](node_type)
-    nf = similar(nt, 0, size(nt, 2))
+    nt = repeat(nt, inner=(1,1,length(datarange)))
+    nf = similar(nt, 0, size(nt)[2:end]...)
     for field in fields
         nf = vcat(
-            nf, mgn.n_norm[field](data[field][:, :, min(size(data[field], 3), datapoint)]))
+            nf, mgn.n_norm[field]((data[field][:, :, datarange[1]:min(size(data[field],3), datarange[end])])))
     end
     nf = vcat(nf, nt)
     return FeatureGraph(
@@ -94,8 +95,11 @@ function build_graph(mgn::GraphNetwork, data, fields, datapoint::Integer, node_t
         #     [mgn.n_norm[field](data[field][:, :, min(size(data[field], 3), datapoint)]) for field in fields]...,
         #     mgn.n_norm["node_type"](node_type)
         # ),
-        mgn.e_norm(edge_features),
-        senders,
-        receivers
+        repeat(mgn.e_norm(edge_features),inner=(1,1,length(datarange))),
+        # reshape(mgn.e_norm(edge_features), size(edge_features)..., 1),
+        reshape(senders, 1, :, 1),
+        reshape(receivers, 1, :, 1),
+        # permutedims(repeat(senders, inner=(1, 1, length(datarange))), [2,1,3]),
+        # permutedims(repeat(receivers, inner=(1, 1, length(datarange))), [2,1,3])
     )
 end
