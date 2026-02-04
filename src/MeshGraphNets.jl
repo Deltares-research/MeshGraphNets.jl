@@ -18,6 +18,7 @@ import OrdinaryDiffEq: Tsit5
 import OrdinaryDiffEqCore: OrdinaryDiffEqAlgorithm
 import ProgressMeter: Progress
 import SciMLBase: ODEProblem
+import ParameterSchedulers: Constant
 
 import Base: @kwdef
 import HDF5: h5open, create_group, open_group
@@ -49,6 +50,7 @@ export train_network, eval_network, data_minmax, data_meanstd
     types_noisy::Vector{Integer} = [0]
     noise_stddevs::Vector{Float32} = [0.0f0]
     training_strategy::TrainingStrategy = DerivativeTraining()
+    opt_scheduler = nothing
     use_cuda::Bool = true
     gpu_device::Union{Nothing, CuDevice} = CUDA.functional() ? CUDA.device() : nothing
     cell_idxs::Vector{Integer} = [0]
@@ -360,6 +362,14 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
 
     train_tuple_additional = prepare_training(args.training_strategy)
 
+    # This assumes Adam optimizer (or at least one with an eta field)
+    # TODO: Generalize?
+    if isnothing(args.opt_scheduler)
+        opt_scheduler = Constant(train_state.optimizer_state.rule.eta)
+    else
+        opt_scheduler = args.opt_scheduler
+    end
+
     train_loader = DataLoader(
         ds_train; batchsize = -1, buffer = false, parallel = true, shuffle = true)
     valid_loader = DataLoader(ds_valid; batchsize = -1, buffer = false, parallel = true)
@@ -384,18 +394,25 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                     Lux.Training.apply_gradients!(train_state, gs[1])
                     mgn.ps = train_state.parameters
                     tmp_loss += sum(losses)
-
+                    
+                    
                     update!(pr, step + data_idx;
-                        showvalues = [
-                            (:train_step, "$(step + data_idx)/$(args.epochs*args.steps)"),
-                            (:train_loss, sum(losses)),
-                            (:checkpoint,
-                                length(df_train.step) > 0 ? last(df_train.step) : 0),
-                            (:data_interval,
-                                delta isa Vector ?
-                                "$datapoint : [$(delta[1]),...,$(delta[end])]" : delta),
-                            (:min_validation_loss, min_validation_loss),
-                            (:last_validation_loss, last_validation_loss)])
+                    showvalues = [
+                        (:train_step, "$(step + data_idx)/$(args.epochs*args.steps)"),
+                        (:train_loss, sum(losses)),
+                        (:learning_rate, train_state.optimizer_state.rule.eta),
+                        (:checkpoint,
+                        length(df_train.step) > 0 ? last(df_train.step) : 0),
+                        (:data_interval,
+                        delta isa Vector ?
+                        "$datapoint : [$(delta[1]),...,$(delta[end])]" : delta),
+                        (:min_validation_loss, min_validation_loss),
+                        (:last_validation_loss, last_validation_loss)])
+                        
+                    # Update optimizer parameters
+                    Optimisers.adjust!(train_state.optimizer_state, opt_scheduler(step+data_idx))
+                    
+
                     if !isnothing(args.wandb_logger)
                         Wandb.log(args.wandb_logger, Dict("train_loss" => sum(losses)))
                     end
@@ -411,6 +428,7 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
             cp_progress += length(delta)
             step += length(delta)
             tmp_loss /= length(delta)
+
 
             if step > args.norm_steps && cp_progress >= args.checkpoint
                 push!(df_train, [step, avg_loss / Float32(step / length(delta))])
