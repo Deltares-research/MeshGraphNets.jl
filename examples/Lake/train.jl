@@ -16,12 +16,12 @@ import Lux: swish
 message_steps = 15
 layer_size = 128
 hidden_layers = 2
-activation_function = swish
-epo = 1
-ns = 20
+activation_function = swish # activation function used in the mlp (see Lux docs for available ones)
+epo = 1 # Number times full train set is looped over
+ns = 20 # Total number of steps seen during training, overrides epochs if epochs is set too low
 nbatch = 1
-norm_steps = 0
-train_noiseless = 10
+norm_steps = 0 # number of steps to wait at start of training before applying model gradient
+train_noiseless = 10 # number of steps train loss is calced for without input noise. Also determines no. of train trajectories being rolled out
 cuda = true
 cp_derivative = 20
 cp_solver = 10
@@ -36,9 +36,11 @@ types_updated = [0, 5]
 types_noisy = [0]
 noise_stddevs = [0.02f0]
 
-learning_rate_derivative = 1.0f-4
-lr_decay = 0.9f0
-lr_decay_rate = 5
+# Learning rate scheduling makes use of ParameterSchedulers.jl
+# See docs for available schedulers and their syntax
+learning_rate_derivative = 1.0f-4 # starting learning rate
+lr_decay = 0.9f0 # learning rate update factor
+lr_decay_rate = 5 # after how many steps learning rate is updated
 opt_derivative = Adam(learning_rate_derivative)
 schedule = Step(start=learning_rate_derivative, decay=lr_decay, step_sizes=lr_decay_rate)
 
@@ -46,7 +48,7 @@ train_strat = DerivativeBatchTraining(batch_size=nbatch)
 # train_strat = DerivativeTraining()
 
 ds_path = "./data"
-chk_path = "./chk_batch"
+chk_path = "./chk"
 eval_path = "./eval"
 
 

@@ -360,6 +360,24 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
     end
     last_validation_loss = min_validation_loss
 
+    # Number of steps per trajectory is window_size if it is used, otherwise trajectory_length from metadata
+    if typeof(args.training_strategy) <: DerivativeStrategy && args.training_strategy.window_size > 0
+        traj_steps = args.training_strategy.window_size
+    else
+        traj_steps = ds_train.meta["trajectory_length"]
+    end
+
+    # Set number of steps to epochs*epoch_length if user args.steps not changed from default
+    if args.steps == 0
+        args.steps = args.epochs*ds_train.meta["n_trajectories"]*traj_steps
+    # If args.steps set to more than steps in epochs, increase epochs to be above args.steps
+    elseif args.steps > args.epochs*ds_train.meta["n_trajectories"]*traj_steps
+        args.epochs = ceil(args.steps / (ds_train.meta["n_trajectories"]*traj_steps))
+    end
+
+    @info "Epoch length: $(ds_train.meta["n_trajectories"]*traj_steps)"
+    @info "Running $(args.steps) steps, $(args.epochs) epochs"
+
     pr = Progress(args.epochs * args.steps; desc = "Training progress: ",
         dt = 0.1, barlen = 50, start = checkpoint, showspeed = true)
 
@@ -402,15 +420,15 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
     train_loader_noiseless = DataLoader(
         ds_train_noiseless; batchsize=-1, buffer=false, parallel=true
     )
-
-    for data in train_loader
-        while step < args.steps
+    for epoch in 1:args.epochs
+        @info "starting epoch $epoch"
+        for data in train_loader
+            step >= args.steps && break
+            @info "taking new trajectory"
             delta = get_delta(args.training_strategy, data["trajectory_length"])
 
             for (data_idx, datapoint) in enumerate(delta)
-                if step + data_idx > args.steps
-                    break
-                end
+                step >= args.steps && break
                 train_tuple = init_train_step(args.training_strategy,
                     (mgn, data, ds_train.meta, fields,
                         ds_train.meta["target_features"], data["node_type"],
@@ -428,7 +446,7 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                     
                     update!(pr, step + data_idx;
                     showvalues = [
-                        (:train_step, "$(step + data_idx)/$(args.epochs*args.steps)"),
+                        (:train_step, "$(step + data_idx)/$(args.steps)"),
                         (:train_loss, sum(losses)),
                         (:learning_rate, train_state.optimizer_state.rule.eta),
                         (:checkpoint,
@@ -450,14 +468,15 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                     gs, losses = train_step(args.training_strategy, train_tuple)
                     update!(pr, step + data_idx;
                         showvalues = [
-                            (:step, "$(step + data_idx)/$(args.epochs*args.steps)"),
+                            (:step, "$(step + data_idx)/$(args.steps)"),
                             (:loss, "acc norm stats..."), (:checkpoint, 0)])
                     push!(train_losses, losses)
                 end
+                step += length(datapoint)
             end
 
             cp_progress += length(delta)
-            step += length(delta)
+            # step += length(delta)
             tmp_loss /= length(delta)
 
 
@@ -491,21 +510,21 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                         desc = "Trajectory $(traj_ind)/$(args.train_noiseless): ",
                         showspeed = true)
 
-                   (total_error, pred_deriv, gt_deriv) = validation_step(args.training_strategy,
-                   (
+                (total_error, pred_deriv, gt_deriv) = validation_step(args.training_strategy,
+                (
                     mgn, traj, ds_train_noiseless.meta, length(delta), args.solver_valid,
                     args.solver_valid_dt, fields, traj["node_type"], traj["edge_features"],
                     traj["senders"], traj["receivers"], traj["mask"], traj["val_mask"],
                     traj["inflow_mask"], pr_solver
-                   ))
+                ))
 
                     push!(errors_noiseless, total_error)
                     push!(pred_deriv_noiseless, pred_deriv)
                     push!(gt_deriv_noiseless, gt_deriv)
 
-                   step_noiseless >= args.train_noiseless && break
+                step_noiseless >= args.train_noiseless && break
 
-                   
+                
                 end
 
                 traj_idx = 1
@@ -545,7 +564,7 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                 if !isnothing(args.wandb_logger)
                     Wandb.log(args.wandb_logger,
                         Dict("validation_loss" => valid_error /
-                                                  ds_valid.meta["n_trajectories"]))
+                                                ds_valid.meta["n_trajectories"]))
                 end
 
                 if valid_error / ds_valid.meta["n_trajectories"] < min_validation_loss
@@ -648,7 +667,7 @@ function eval_network(ds_path, cp_path::String, out_path::String, solver = nothi
 
     mgn, _, _, _ = load(
         quantities, typeof(dims) <: AbstractArray ? length(dims) : dims, e_norms,
-        n_norms, o_norms, n_feats, n_nodes, n_edges, args.mps, args.layer_size, args.hidden_layers,
+        n_norms, o_norms, n_feats, n_nodes, n_edges, args.mps, args.activ_function, args.layer_size, args.hidden_layers,
         nothing, device, args.use_valid ? joinpath(cp_path, "valid") : cp_path)
 
     Lux.testmode(mgn.st)

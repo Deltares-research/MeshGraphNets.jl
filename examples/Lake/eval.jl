@@ -6,6 +6,7 @@ using MeshGraphNets
 
 import OrdinaryDiffEq: Euler, Tsit5
 import Optimisers: Adam
+import Lux: swish
 
 ######################
 # Network parameters #
@@ -14,6 +15,7 @@ import Optimisers: Adam
 message_steps = 15
 layer_size = 128
 hidden_layers = 2
+activation_function = swish # activation function used in the mlp (see Lux docs for available ones)
 batch = 1
 epo = 1
 ns = 5
@@ -49,5 +51,5 @@ mse_steps = vcat(collect(tstart:dt:tstop), tstop)
 eval_network(
     ds_path, chk_path, eval_path, Euler(); start = tstart, stop = tstop,
     dt = dt, saves = tstart:dt:tstop, mse_steps = collect(mse_steps), mps = message_steps,
-    layer_size = layer_size, hidden_layers = hidden_layers, use_cuda = cuda
+    layer_size = layer_size, hidden_layers = hidden_layers, activ_function=activation_function, use_cuda = cuda
 )
