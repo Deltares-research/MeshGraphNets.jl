@@ -117,15 +117,28 @@ function _validation_step(t::Tuple, sim_interval, data_interval)
 
     gt = vcat([data[tf] for tf in meta["target_features"]]...)[:, :, data_interval]
 
-    sol_u, _ = rollout(
+    sol_u, sol_t = rollout(
         solver, mgn, data, fields, meta, meta["target_features"], target_dict,
         node_type, edge_features, senders, receivers, val_mask, inflow_mask,
         sim_interval[1], sim_interval[end], solver_dt, sim_interval, pr)
     prediction = cat(sol_u...; dims = 3)[:, :, data_interval]
 
-    error = mean((prediction - gt) .^ 2; dims = 3)
+    sol_t = sol_t |> meta["device"]
 
-    return mean(error[mask])
+    se_nodes = ((prediction .- gt) .^2)[:,mask,:]
+    mse_nodes = mean(se_nodes; dims=2)
+
+    pred_deriv = (prediction[:,:,2:end] .- prediction[:,:,1:end-1]) ./ 
+        reshape((sol_t[2:end] .- sol_t[1:end-1]), (1,1,:))
+    pred_deriv_mean = mean(pred_deriv[:,mask,:]; dims=2)
+
+    gt_deriv = (gt[:,:,2:end] .- gt[:,:,1:end-1]) ./ 
+        reshape((sol_t[2:end] .- sol_t[1:end-1]), (1,1,:))
+    gt_deriv_mean = mean(gt_deriv[:,mask,:]; dims=2)
+    # error = mean((prediction - gt) .^ 2; dims = 3)
+
+    # return mean(error[mask])
+    return mse_nodes, pred_deriv_mean, gt_deriv_mean
 end
 
 ####################################################################
@@ -453,7 +466,7 @@ function train_step(::DerivativeStrategy, t::Tuple)
 end
 
 function validation_step(::DerivativeStrategy, t::Tuple)
-    sim_interval = t[2]["dt"]
+    sim_interval = t[2]["dt"] |> cpu_device()
     pop!(sim_interval)
     data_interval = 1:(length(sim_interval))
 
