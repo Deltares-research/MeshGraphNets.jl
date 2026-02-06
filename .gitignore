@@ -13,4 +13,7 @@ Manifest.toml
 # VSCode files
 .vscode/
 
-examples/Lake
+examples/Lake/*
+!examples/Lake/train.jl
+!examples/Lake/eval.jl
+!examples/Lake/tfrecord_to_jld2.jl
