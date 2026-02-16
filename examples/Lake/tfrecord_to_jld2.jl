@@ -3,7 +3,7 @@ using Pkg
 Pkg.activate("..")
 using TFRecord, JLD2
 
-trajectory_length = 1001
+trajectory_length = 201
 features = Dict{String, Dict}(
     "cells" => Dict{String, Any}(
         "type" => "static",
@@ -74,7 +74,7 @@ for file in ["train", "valid", "test"]
             edges = traj_dict["edges"]
             traj_group["edges"] = edges[:,:,1]
         else
-            @err "Neither cells nor edges found in file data/$file.tfrecord"
+            error("Neither cells nor edges found in file data/$file.tfrecord")
         end
 
         mesh_pos = traj_dict["mesh_pos"]
