@@ -1,0 +1,60 @@
+{
+  "dt": 180.0,
+  "trajectory_length": 1001,
+  "dims": 2,
+  "n_nodes": "n_nodes",
+  // "edges":{
+  //   "key": "cells",
+  //   "type": "cells"
+  // },
+  "edges":{
+    "key": "edges",
+    "type": "custom"
+  },
+  "feature_names": [
+    "mesh_pos",
+    "node_type",
+    "velocity",
+    "waterlevel",
+    "bathymetry"
+  ],
+  "target_features": [
+    "velocity",
+    "waterlevel"
+  ],
+  "features": {
+    "mesh_pos": {
+      "key": "node[%d].mesh_pos",
+      "type": "static",
+      "dim": 2,
+      "dtype": "float32"
+    },
+    "node_type": {
+      "key": "node[%d].node_type",
+      "type": "static",
+      "dim": 1,
+      "dtype": "int32",
+      "onehot": true,
+      "data_min": 0,
+      "data_max": 6
+    },
+    "velocity": {
+      "key": "node[%d].V",
+      "type": "dynamic",
+      "dim": 2,
+      "dtype": "float32"
+    },
+    "waterlevel": {
+      "key": "node[%d].h",
+      "type": "dynamic",
+      "dim": 1,
+      "dtype": "float32"
+    },
+    "bathymetry": {
+      "key": "node[%d].d",
+      "type": "dynamic",
+      "dim": 1,
+      "dtype": "float32"
+    }
+  }
+}

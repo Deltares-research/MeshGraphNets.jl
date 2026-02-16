@@ -10,7 +10,7 @@ features = Dict{String, Dict}(
         "shape" => [1, -1, 3],
         "dtype" => "int32"
     ),
-    "edges" => Dict{String, Dict}(
+    "edges" => Dict{String, Any}(
         "type" => "static",
         "shape" => [1, -1, 2],
         "dtype" => "int32",
@@ -36,8 +36,8 @@ features = Dict{String, Dict}(
         "dtype" => "float32"
     ),
     "bathymetry" => Dict{String, Any}(
-        "type" => "dynamic",
-        "shape" => [trajectory_length, -1, 1],
+        "type" => "static",
+        "shape" => [1, -1, 1],
         "dtype" => "float32"
     )
 )
