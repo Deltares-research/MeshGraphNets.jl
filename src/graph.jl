@@ -85,8 +85,9 @@ function build_graph(mgn::GraphNetwork, data, fields, datarange::Union{Integer, 
     nt = repeat(nt, inner=(1,1,length(datarange)))
     nf = similar(nt, 0, size(nt)[2:end]...)
     for field in fields
+        inds = size(data[field],3) == 1 ? Colon() : datarange[1]:min(size(data[field],3), datarange[end])
         nf = vcat(
-            nf, mgn.n_norm[field]((data[field][:, :, datarange[1]:min(size(data[field],3), datarange[end])])))
+            nf, mgn.n_norm[field](data[field][:, :, inds]))
     end
     nf = vcat(nf, nt)
     return FeatureGraph(

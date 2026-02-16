@@ -488,6 +488,7 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                 pr_noiseless = Progress(args.train_noiseless;
                     desc = "Noiseless train steps: ", barlen = 50)
 
+                step_noiseless = 0
                 for (traj_ind, traj) in enumerate(train_loader_noiseless)
                     for datapoint in delta
                         step_noiseless > args.train_noiseless && break
@@ -510,23 +511,24 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                         desc = "Trajectory $(traj_ind)/$(args.train_noiseless): ",
                         showspeed = true)
 
-                (total_error, pred_deriv, gt_deriv) = validation_step(args.training_strategy,
-                (
-                    mgn, traj, ds_train_noiseless.meta, length(delta), args.solver_valid,
-                    args.solver_valid_dt, fields, traj["node_type"], traj["edge_features"],
-                    traj["senders"], traj["receivers"], traj["mask"], traj["val_mask"],
-                    traj["inflow_mask"], pr_solver
-                ))
+                    (total_error, pred_deriv, gt_deriv) = validation_step(args.training_strategy,
+                    (
+                        mgn, traj, ds_train_noiseless.meta, length(delta), args.solver_valid,
+                        args.solver_valid_dt, fields, traj["node_type"], traj["edge_features"],
+                        traj["senders"], traj["receivers"], traj["mask"], traj["val_mask"],
+                        traj["inflow_mask"], pr_solver
+                    ))
 
+                    clear_log(3)
                     push!(errors_noiseless, total_error)
                     push!(pred_deriv_noiseless, pred_deriv)
                     push!(gt_deriv_noiseless, gt_deriv)
 
-                step_noiseless >= args.train_noiseless && break
-
+                    step_noiseless >= args.train_noiseless && break
                 
                 end
-
+                clear_log(6)
+                
                 traj_idx = 1
                 valid_error = 0.0f0
                 pr_valid = Progress(ds_valid.meta["n_trajectories"];

@@ -163,6 +163,11 @@ function set_meta!(traj_dict::Dict{String, Any}, ds::Dataset, key::String)
     tl = ds.meta["trajectory_length"]
     dims = ds.meta["dims"]
 
+    # fixes bug with parsing meta.json: numbers without decimals are parsed as ints not floats
+    if typeof(dt) <: Integer
+        dt = float(dt)
+    end
+
     if typeof(dt) <: AbstractFloat
         if tl == -1
             throw(ArgumentError("The metadata \"dt\" was specified as static and \"trajectory_length\" as -1 inside the metafile. You need to specify one of them as a vector with the length equal to the number of steps to infer the other one."))
