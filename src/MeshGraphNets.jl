@@ -473,9 +473,9 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                     push!(train_losses, losses)
                 end
                 step += length(datapoint)
+                cp_progress += length(datapoint)
             end
 
-            cp_progress += length(delta)
             # step += length(delta)
             tmp_loss /= length(delta)
 
