@@ -450,6 +450,15 @@ function set_traj_data!(traj_dict::Dict{String, Any}, match_data, ds::Dataset, f
                 end
             else
                 traj_dict[fn_k][coord, idx_node, :] .= data
+                # For batching to work, copies of data type static still needed for each time step
+                # mesh_pos, node_type, cells exempted like elsewhere in code
+                if fn_k == "mesh_pos" || fn_k == "node_type" || fn_k == "cells"
+                    continue
+                else
+                    if size(traj_dict[fn_k],3) !== traj_dict["trajectory_length"]
+                        traj_dict[fn_k] = repeat(traj_dict[fn_k], inner = (1,1,traj_dict["trajectory_length"]))
+                    end
+                end
             end
         end
     end
