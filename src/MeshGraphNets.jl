@@ -436,7 +436,7 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                         datapoint, data["mask"], data["val_mask"]),
                     train_tuple_additional)
 
-                if step + data_idx > args.norm_steps
+                if step > args.norm_steps
                     gs, losses = train_step(args.training_strategy, train_tuple)
                     Lux.Training.apply_gradients!(train_state, gs[1])
                     mgn.ps = train_state.parameters
@@ -444,9 +444,9 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                     push!(train_losses, losses)
                     
                     
-                    update!(pr, step + data_idx;
+                    update!(pr, step;
                     showvalues = [
-                        (:train_step, "$(step + data_idx)/$(args.steps)"),
+                        (:train_step, "$(step+length(datapoint))/$(args.steps)"),
                         (:train_loss, sum(losses)),
                         (:learning_rate, train_state.optimizer_state.rule.eta),
                         (:checkpoint,
@@ -458,7 +458,7 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                         (:last_validation_loss, last_validation_loss)])
                         
                     # Update optimizer parameters
-                    Optimisers.adjust!(train_state.optimizer_state, opt_scheduler(step+data_idx))
+                    Optimisers.adjust!(train_state.optimizer_state, opt_scheduler(step+length(datapoint)))
                     
 
                     if !isnothing(args.wandb_logger)
@@ -466,9 +466,9 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                     end
                 else
                     gs, losses = train_step(args.training_strategy, train_tuple)
-                    update!(pr, step + data_idx;
+                    update!(pr, step;
                         showvalues = [
-                            (:step, "$(step + data_idx)/$(args.steps)"),
+                            (:step, "$(step+length(datapoint))/$(args.steps)"),
                             (:loss, "acc norm stats..."), (:checkpoint, 0)])
                     push!(train_losses, losses)
                 end
@@ -502,13 +502,16 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                         _, losses_noiseless = train_step(args.training_strategy, train_tuple)
 
                         push!(train_losses_noiseless, losses_noiseless)
-                        step_noiseless +=1 
-                        next!(pr_noiseless)
+                        step_noiseless += length(datapoint) 
+                        update!(pr_noiseless, step_noiseless, showvalues=[
+                            (:step_noiseless, "$(step_noiseless)/$(args.train_noiseless)"),
+                            (:losses_noiseless, "$(losses_noiseless)")
+                        ])
                     end
                 
 
                     pr_solver = ProgressUnknown(;
-                        desc = "Trajectory $(traj_ind)/$(args.train_noiseless): ",
+                        desc = "Trajectory $(traj_ind)/$(cld(args.train_noiseless,ds_train_noiseless.meta["trajectory_length"])): ",
                         showspeed = true)
 
                     (total_error, pred_deriv, gt_deriv) = validation_step(args.training_strategy,
