@@ -587,15 +587,17 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
         end
     end
 
-    losses_dict["train_losses"] = train_losses
-    losses_dict["train_losses_noiseless"] = train_losses_noiseless
-    losses_dict["train_error_noiseless"] = errors_noiseless
-    losses_dict["train_pred_deriv_noiseless"] = pred_deriv_noiseless
-    losses_dict["train_gt_deriv_noiseless"] = gt_deriv_noiseless
-    losses_dict["valid_error"] = valid_errors
-    losses_dict["valid_pred_deriv"] = valid_pred_deriv
-    losses_dict["valid_gt_deriv"] = valid_gt_deriv
-    losses_dict["min_validation_loss"] = min_validation_loss
+    losses_dict["train_losses"] = train_losses |>cpu_device()
+    losses_dict["train_losses_noiseless"] = train_losses_noiseless |> cpu_device()
+    losses_dict["train_error_noiseless"] = errors_noiseless |> cpu_device()
+    losses_dict["train_pred_deriv_noiseless"] = pred_deriv_noiseless |> cpu_device()
+    losses_dict["train_gt_deriv_noiseless"] = gt_deriv_noiseless |> cpu_device()
+    losses_dict["valid_error"] = valid_errors |> cpu_device()
+    losses_dict["valid_pred_deriv"] = valid_pred_deriv |> cpu_device()
+    losses_dict["valid_gt_deriv"] = valid_gt_deriv |> cpu_device()
+    losses_dict["min_validation_loss"] = min_validation_loss |> cpu_device()
+
+    JLD2.save(joinpath(cp_path, "config.jld2"), Dict(string(key) => getfield(args,key) for key in propertynames(args)))
 
     # return train_losses, valid_errors, valid_pred_deriv, valid_gt_deriv, min_validation_loss
     return losses_dict
