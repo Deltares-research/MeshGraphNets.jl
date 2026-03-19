@@ -506,7 +506,7 @@ function DerivativeBatchTraining(; batch_size::Integer = 32, window_size::Intege
 end
 
 function get_delta(strategy::DerivativeBatchTraining, trajectory_length::Integer)
-    max_step = strategy.window_size > 0 ? strategy.window_size : trajectory_length
+    max_step = strategy.window_size > 0 ? strategy.window_size : strategy.batch_size * (trajectory_length ÷ strategy.batch_size)
     ranges = [i:min(max_step, i + strategy.batch_size - 1) for i in 1:(strategy.batch_size):(max_step-1)]
     return ranges
 end
