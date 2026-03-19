@@ -441,7 +441,7 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
                     Lux.Training.apply_gradients!(train_state, gs[1])
                     mgn.ps = train_state.parameters
                     tmp_loss += sum(losses)
-                    push!(train_losses, losses)
+                    push!(train_losses, losses/length(datapoint))
                     
                     
                     update!(pr, step;
