@@ -378,7 +378,7 @@ function train_mgn!(mgn::GraphNetwork, train_state, ds_train::Dataset, ds_valid:
     @info "Epoch length: $(ds_train.meta["n_trajectories"]*traj_steps)"
     @info "Running $(args.steps) steps, $(args.epochs) epochs"
 
-    pr = Progress(args.epochs * args.steps; desc = "Training progress: ",
+    pr = Progress(args.steps; desc = "Training progress: ",
         dt = 0.1, barlen = 50, start = checkpoint, showspeed = true)
 
     local tmp_loss = 0.0f0
